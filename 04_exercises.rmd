@@ -1,8 +1,9 @@
 ---
 title: 'Weekly Exercises #4'
-author: "Put your name here"
+author: "Rohit Shah"
 output: 
   html_document:
+    theme: journal
     keep_md: TRUE
     toc: TRUE
     toc_float: TRUE
@@ -73,7 +74,6 @@ If you were not able to get set up on GitHub last week, go [here](https://github
 * Back in R Studio, knit the .Rmd file. When you do that, you should have two (as long as you didn't make any changes to the .Rmd file, in which case you might have three) files show up in the Git tab - an .html file and an .md file. The .md file is something we haven't seen before and is here because I included `keep_md: TRUE` in the YAML heading. The .md file is a markdown (NOT R Markdown) file that is an interim step to creating the html file. They are displayed fairly nicely in GitHub, so we want to keep it and look at it there. Click the boxes next to these two files, commit changes (remember to include a commit message), and push them (green up arrow).  
 * As you work through your homework, save and commit often, push changes occasionally (maybe after you feel finished with an exercise?), and go check to see what the .md file looks like on GitHub.  
 * If you have issues, let me know! This is new to many of you and may not be intuitive at first. But, I promise, you'll get the hang of it! 
-
 
 ## Instructions
 
@@ -389,7 +389,7 @@ covid19 %>%
                fill = covid19_per_10000)) +
   expand_limits(x = states_map$long, y = states_map$lat) +
   theme_map() +
-  labs(title = "Cumulative COVID cases in millions by State", fill = "")
+  labs(title = "Cumulative COVID cases per 10,000 people", fill = "")
 
 ```
   
@@ -433,20 +433,52 @@ leaflet(data = MplsStops) %>%
   
   16. Save the folder from moodle called Minneapolis_Neighborhoods into your project/repository folder for this assignment. Make sure the folder is called Minneapolis_Neighborhoods. Use the code below to read in the data and make sure to **delete the `eval=FALSE`**. Although it looks like it only links to the .sph file, you need the entire folder of files to create the `mpls_nbhd` data set. These data contain information about the geometries of the Minneapolis neighborhoods. Using the `mpls_nbhd` dataset as the base file, join the `mpls_suspicious` and `MplsDemo` datasets to it by neighborhood (careful, they are named different things in the different files). Call this new dataset `mpls_all`.
 
-```{r, eval=FALSE}
-mpls_nbhd <- st_read("Minneapolis_Neighborhoods/Minneapolis_Neighborhoods.shp", quiet = TRUE)
+```{r}
+mpls_nbhd <- st_read("Minneapolis_Neighborhoods-20210217/Minneapolis_Neighborhoods.shp", quiet = TRUE)
+mpls_all <- 
+  mpls_nbhd %>%
+  full_join(mpls_suspicious,
+            by = c("BDNAME" = "neighborhood")) %>%
+  full_join(MplsDemo,
+            by = c("BDNAME" = "neighborhood"))
 ```
 
   17. Use `leaflet` to create a map from the `mpls_all` data  that colors the neighborhoods by `prop_suspicious`. Display the neighborhood name as you scroll over it. Describe what you observe in the map.
 
 ```{r}
+pal <- colorFactor("viridis", 
+                     domain = MplsStops$propSuspicious)
 
+leaflet(data = mpls_all) %>%
+  addTiles() %>%
+  addCircleMarkers(lng = ~long,
+             lat = ~lat,
+             label = ~BDNAME,
+             weight = 1,
+             radius = 0.8,
+             stroke = FALSE,
+             opacity = 1,
+             color = ~pal(propSuspicious))
 ```
   
   18. Use `leaflet` to create a map of your own choosing. Come up with a question you want to try to answer and use the map to help answer that question. Describe what your map shows. 
-  
-```{r}
 
+What is the relationship between each neighborhood's proportion of black people and vehicle searches during police stops?
+
+```{r}
+pal <- colorFactor("viridis", 
+                     domain = MplsStops$vehicleSearch)
+
+leaflet(data = mpls_all) %>%
+  addTiles() %>%
+  addCircleMarkers(lng = ~long,
+             lat = ~lat,
+             label = ~black,
+             weight = 1,
+             radius = 0.8,
+             stroke = FALSE,
+             opacity = 1,
+             color = ~pal(vehicleSearch))
 ```
   
 ## GitHub link
