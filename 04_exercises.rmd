@@ -150,6 +150,7 @@ ggmap(mpls_map) +
   theme(legend.background = element_blank()) +
   labs(title = "Starbucks locations in MSP")
 ```
+***Worked with Nolan Meyer on 4***
 
   5. Add a point to the map that indicates Macalester College and label it appropriately. There are many ways you can do think, but I think it's easiest with the `annotate()` function (see `ggplot2` cheatsheet).
   
@@ -196,8 +197,23 @@ First, the census estimates data is loaded into r. Next, it separates the period
   7. Create a choropleth map that shows the number of Starbucks per 10,000 people on a map of the US. Use a new fill color, add points for all Starbucks in the US (except Hawaii and Alaska), add an informative title for the plot, and include a caption that says who created the plot (you!). Make a conclusion about what you observe.
 
 ```{r}
+
+states_map <- map_data("state")
+
 starbucks_with_2018_pop_est %>%
-  
+  ggplot() +
+  geom_map(map = states_map,
+           aes(map_id = state_name,
+               fill = starbucks_per_10000)) +
+  expand_limits(x = states_map$long, y = states_map$lat) +
+  geom_point(data = Starbucks %>% filter(Country == "US", `State/Province` != "AK", `State/Province` != "HI"),
+             aes(x = Longitude, y = Latitude),
+             size = 0.05,
+             alpha = 0.2,
+             color = "yellow") +
+  theme_map() +
+  scale_fill_viridis_c(option = "red") +
+  labs(title = "Starbucks per 10,000 people by state", fill = "", caption = "Created by: Rohit Shah")
 ```
 
 ### A few of your favorite things (`leaflet`)
@@ -335,30 +351,45 @@ The following exercises will use the COVID-19 data from the NYT.
   11. Create a map that colors the states by the most recent cumulative number of COVID-19 cases (remember, these data report cumulative numbers so you don't need to compute that). Describe what you see. What is the problem with this map?
   
 ```{r}
-covid_by_state <- covid19 %>% 
+states_map <- map_data("state")
+
+covid19 %>% 
   group_by(`state`) %>%
-  filter(date == "2021-02-16") %>%
-  count(`cases`)
-
-states_map <- get_stamenmap(
-  c(left = -77.4117, bottom = 38.7094, right = -76.6757, top = 39.0761),
-  maptype = "terrain",
-  zoom = 10)
-
-covid_by_state %>% 
+  filter(date == max(date)) %>%
+  mutate(state = str_to_lower(state)) %>%
   ggplot() +
   geom_map(map = states_map,
            aes(map_id = state,
-               color = cases)) +
-  #This assures the map looks decently nice:
-  expand_limits(x = states_map$long, y = states_map$lat) + 
-  theme_map()
-
+               fill = cases/1000000)) +
+  expand_limits(x = states_map$long, y = states_map$lat) +
+  theme_map() +
+  labs(title = "Cumulative COVID cases in millions by State", fill = "")
 ```
   
   12. Now add the population of each state to the dataset and color the states by most recent cumulative cases/10,000 people. See the code for doing this with the Starbucks data. You will need to make some modifications. 
   
 ```{r}
+states_map <- map_data("state")
+
+census_pop_est_2018 <- read_csv("https://www.dropbox.com/s/6txwv3b4ng7pepe/us_census_2018_state_pop_est.csv?dl=1") %>% 
+  separate(state, into = c("dot","state"), extra = "merge") %>% 
+  select(-dot) %>% 
+  mutate(state = str_to_lower(state))
+
+covid19 %>% 
+  group_by(`state`) %>%
+  filter(date == max(date)) %>%
+  mutate(state = str_to_lower(state)) %>%
+  left_join(census_pop_est_2018,
+            by = c("state" = "state")) %>% 
+  mutate(covid19_per_10000 = (cases/est_pop_2018)*10000) %>%
+  ggplot() +
+  geom_map(map = states_map,
+           aes(map_id = state,
+               fill = covid19_per_10000)) +
+  expand_limits(x = states_map$long, y = states_map$lat) +
+  theme_map() +
+  labs(title = "Cumulative COVID cases in millions by State", fill = "")
 
 ```
   
@@ -375,13 +406,29 @@ These exercises use the datasets `MplsStops` and `MplsDemo` from the `carData` l
   14. Use the `MplsStops` dataset to find out how many stops there were for each neighborhood and the proportion of stops that were for a suspicious vehicle or person. Sort the results from most to least number of stops. Save this as a dataset called `mpls_suspicious` and display the table. 
   
 ```{r}
-
+mpls_suspicious <-
+  MplsStops %>%
+  group_by(neighborhood) %>%
+  mutate(propSuspicious = sum(problem == "suspicious")/(sum(problem == "suspicious") + sum(problem != "suspicious"))) %>%
+  arrange(desc(propSuspicious)) 
 ```
   
   15. Use a `leaflet` map and the `MplsStops` dataset to display each of the stops on a map as a small point. Color the points differently depending on whether they were for suspicious vehicle/person or a traffic stop (the `problem` variable). HINTS: use `addCircleMarkers`, set `stroke = FAlSE`, use `colorFactor()` to create a palette.  
   
 ```{r}
+pal <- colorFactor("viridis", 
+                     domain = MplsStops$problem)
 
+leaflet(data = MplsStops) %>%
+  addTiles() %>%
+  addCircleMarkers(lng = ~long,
+             lat = ~lat,
+             label = ~neighborhood,
+             weight = 1,
+             radius = 0.5,
+             stroke = FALSE,
+             opacity = 1,
+             color = ~pal(problem))
 ```
   
   16. Save the folder from moodle called Minneapolis_Neighborhoods into your project/repository folder for this assignment. Make sure the folder is called Minneapolis_Neighborhoods. Use the code below to read in the data and make sure to **delete the `eval=FALSE`**. Although it looks like it only links to the .sph file, you need the entire folder of files to create the `mpls_nbhd` data set. These data contain information about the geometries of the Minneapolis neighborhoods. Using the `mpls_nbhd` dataset as the base file, join the `mpls_suspicious` and `MplsDemo` datasets to it by neighborhood (careful, they are named different things in the different files). Call this new dataset `mpls_all`.
